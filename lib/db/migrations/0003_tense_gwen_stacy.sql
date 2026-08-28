@@ -1,0 +1,1 @@
+ALTER TABLE `characters` ADD `use_face_swap` integer DEFAULT false NOT NULL;
