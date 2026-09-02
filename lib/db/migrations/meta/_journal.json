@@ -36,6 +36,13 @@
       "when": 1786320000000,
       "tag": "0004_add_summary_watermark",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786320000001,
+      "tag": "0005_add_world_setting",
+      "breakpoints": true
     }
   ]
 }

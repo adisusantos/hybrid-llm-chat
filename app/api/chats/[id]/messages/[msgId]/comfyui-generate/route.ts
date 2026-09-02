@@ -55,6 +55,7 @@ async function buildComfyPrompt(chatId: string, msgId: string): Promise<string |
       bodyDescription: character.bodyDescription ?? undefined,
       characterGender: null,
       lastAssistantMsg: target.content,
+      worldSetting: character.worldSetting || undefined,
     });
     return fieldsToPrompt(fields);
   }
@@ -63,6 +64,7 @@ async function buildComfyPrompt(chatId: string, msgId: string): Promise<string |
     const llmFields = await buildLlmPrompt({
       appearance: extractedAppearance,
       lastAssistantMsg: target.content,
+      worldSetting: character.worldSetting || undefined,
     });
     const subjectFromDb = buildSmartPrompt({
       appearance: extractedAppearance,
@@ -70,6 +72,7 @@ async function buildComfyPrompt(chatId: string, msgId: string): Promise<string |
       bodyDescription: character.bodyDescription ?? undefined,
       characterGender: null,
       lastAssistantMsg: "",
+      worldSetting: character.worldSetting || undefined,
     }).subject;
     return fieldsToPrompt({ ...llmFields, subject: subjectFromDb || llmFields.subject });
   } catch {
@@ -79,6 +82,7 @@ async function buildComfyPrompt(chatId: string, msgId: string): Promise<string |
       bodyDescription: character.bodyDescription ?? undefined,
       characterGender: null,
       lastAssistantMsg: target.content,
+      worldSetting: character.worldSetting || undefined,
     });
     return fieldsToPrompt(fields);
   }

@@ -3,7 +3,9 @@
 // with the common 4-characters-per-token heuristic. Overestimates are safe
 // for budget enforcement (we just inject slightly less than we could).
 
-const CHARS_PER_TOKEN = 4;
+// Conservative token estimator. 3.2 chars/token accounts for Indonesian/multilingual
+// text which typically has higher token-per-character ratios than English.
+const CHARS_PER_TOKEN = 3.2;
 
 export function estimateTokens(s: string): number {
   if (!s) return 0;

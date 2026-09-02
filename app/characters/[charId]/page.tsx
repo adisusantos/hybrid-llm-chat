@@ -30,6 +30,7 @@ export default async function EditCharacterPage({
     description: char.description,
     personality: char.personality,
     scenario: char.scenario,
+    worldSetting: char.worldSetting ?? "",
     firstMes: char.firstMes,
     mesExample: char.mesExample,
     systemPromptOverride: char.systemPromptOverride ?? "",

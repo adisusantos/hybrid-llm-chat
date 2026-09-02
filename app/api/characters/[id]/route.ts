@@ -11,6 +11,7 @@ const UpdateSchema = z.object({
   description: z.string().optional(),
   personality: z.string().optional(),
   scenario: z.string().optional(),
+  worldSetting: z.string().optional(),
   firstMes: z.string().optional(),
   mesExample: z.string().optional(),
   systemPromptOverride: z.string().nullable().optional(),
@@ -53,6 +54,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
   if (d.description !== undefined) updates.description = d.description;
   if (d.personality !== undefined) updates.personality = d.personality;
   if (d.scenario !== undefined) updates.scenario = d.scenario;
+  if (d.worldSetting !== undefined) updates.worldSetting = d.worldSetting;
   if (d.firstMes !== undefined) updates.firstMes = d.firstMes;
   if (d.mesExample !== undefined) updates.mesExample = d.mesExample;
   if (d.systemPromptOverride !== undefined) updates.systemPromptOverride = d.systemPromptOverride;

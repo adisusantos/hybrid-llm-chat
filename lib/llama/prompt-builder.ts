@@ -144,16 +144,12 @@ function substituteTemplateVars(text: string, charName: string, userName = "User
     .replace(/\{\{user\}\}/gi, userName);
 }
 
-/**
- * Build a compact character identity block (description + personality + scenario).
- * Used to inject character data into systemPromptOverride templates that only
- * contain generic roleplay instructions without any character-specific content.
- */
-function buildCharacterDetailBlock(character: {
+export function buildCharacterDetailBlock(character: {
   name: string;
   description: string;
   personality: string;
   scenario: string;
+  worldSetting: string;
   appearance: string;
   firstMes: string;
   mesExample: string;
@@ -164,6 +160,7 @@ function buildCharacterDetailBlock(character: {
   if (character.personality) parts.push(`[Personality]\n${sub(character.personality)}`);
   if (character.appearance) parts.push(`[Physical appearance]\n${sub(character.appearance)}`);
   if (character.scenario) parts.push(`[Scenario]\n${sub(character.scenario)}`);
+  if (character.worldSetting) parts.push(`[World Setting]\n${sub(character.worldSetting)}\nENFORCEMENT: NEVER reference objects, technology, clothing, transportation, architecture, or customs that don't exist in this world setting. All descriptions must be consistent with the era and culture defined above.`);
   // Replace the generic EXAMPLE FORMAT section's examples with character-specific ones
   if (character.firstMes) parts.push(`[Opening line example]\n${sub(character.firstMes)}`);
   if (character.mesExample) parts.push(`[Example dialogue]\n${sub(character.mesExample)}`);
@@ -171,11 +168,12 @@ function buildCharacterDetailBlock(character: {
   return "\n" + parts.join("\n\n") + "\n";
 }
 
-function buildCharacterSystemPrompt(character: {
+export function buildCharacterSystemPrompt(character: {
   name: string;
   description: string;
   personality: string;
   scenario: string;
+  worldSetting: string;
   firstMes: string;
   mesExample: string;
   systemPromptOverride: string | null;
@@ -223,6 +221,7 @@ function buildCharacterSystemPrompt(character: {
   if (character.appearance)
     sections.push(`\n[Physical appearance]\n${sub(character.appearance)}`);
   if (character.scenario) sections.push(`\n[Scenario]\n${sub(character.scenario)}`);
+  if (character.worldSetting) sections.push(`\n[World Setting]\n${sub(character.worldSetting)}\nENFORCEMENT: NEVER reference objects, technology, clothing, transportation, architecture, or customs that don't exist in this world setting. All descriptions must be consistent with the era and culture defined above.`);
   if (character.firstMes) sections.push(`\n[Opening message style]\n${sub(character.firstMes)}`);
   if (character.mesExample) sections.push(`\n[Example dialogue]\n${sub(character.mesExample)}`);
   sections.push(

@@ -35,13 +35,19 @@ CRITICAL RULES:
 const LLM_USER_TEMPLATE = (input: {
   appearance: string;
   lastAssistantMsg: string;
-}) => `Character physical description:
+  worldSetting?: string;
+}) => {
+  const worldBlock = input.worldSetting
+    ? `\nWorld Setting (era/culture — all visual elements must be consistent with this):\n${input.worldSetting}\n`
+    : "";
+  return `Character physical description:
 ${input.appearance || "(none provided — describe what is depicted based on the scene)"}
-
+${worldBlock}
 Full assistant message (the entire scene to visualize — read all of it):
 ${input.lastAssistantMsg}
 
 Return the 9-field JSON only.`;
+};
 
 const FIELD_NAMES: (keyof PromptFields)[] = [
   "subject",
@@ -76,6 +82,7 @@ export async function buildLlmPrompt(
   input: {
     appearance: string;
     lastAssistantMsg: string;
+    worldSetting?: string;
   },
   opts?: { baseUrl?: string },
 ): Promise<PromptFields> {

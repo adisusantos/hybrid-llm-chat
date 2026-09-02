@@ -34,7 +34,10 @@ import type { ChatMessage } from "@/lib/llama/client";
  * the system prompt, so trimmed messages are not permanently lost.
  */
 
-const DEFAULT_MAX_PROMPT_TOKENS = 8000;
+// Default max prompt tokens: 6000 tokens.
+// Safe for 8192 context models (leaves ~2200 tokens for output generation + token estimate margins)
+// and handles higher context models gracefully.
+const DEFAULT_MAX_PROMPT_TOKENS = 6000;
 const DEFAULT_MIN_MESSAGES = 6;
 const ROLE_OVERHEAD_TOKENS = 4;
 // When trimming is triggered, aim for this fraction of the cap instead of the

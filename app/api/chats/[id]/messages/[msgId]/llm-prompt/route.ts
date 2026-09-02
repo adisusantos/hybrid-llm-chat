@@ -27,13 +27,14 @@ async function withTimeout<T>(ms: number, fn: () => Promise<T>): Promise<T> {
 async function buildWithRetry(
   appearance: string,
   lastAssistantMsg: string,
+  worldSetting?: string,
 ): Promise<Awaited<ReturnType<typeof buildLlmPrompt>>> {
   const attempts = 2;
   let lastErr: unknown = null;
   for (let i = 0; i < attempts; i++) {
     try {
       return await withTimeout(REQUEST_TIMEOUT_MS, () =>
-        buildLlmPrompt({ appearance, lastAssistantMsg }),
+        buildLlmPrompt({ appearance, lastAssistantMsg, worldSetting }),
       );
     } catch (err) {
       lastErr = err;
@@ -71,7 +72,7 @@ export async function POST(
   if (!chat) return NextResponse.json({ error: "chat not found" }, { status: 404 });
 
   try {
-    const fields = await buildWithRetry(chat.character.appearance, target.content);
+    const fields = await buildWithRetry(chat.character.appearance, target.content, chat.character.worldSetting);
     return NextResponse.json({ fields });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

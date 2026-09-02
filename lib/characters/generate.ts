@@ -14,6 +14,7 @@ export type CharacterDraft = {
   personality: string
   appearance: string
   scenario: string
+  worldSetting: string
   firstMes: string
   mesExample: string
 }
@@ -146,13 +147,14 @@ YOU MUST output ONLY a raw JSON object. No prose, no markdown fences, no explana
   return result.fields as CharacterDraft
 }
 
-function parseCharacterJSON(raw: string) {
+export function parseCharacterJSON(raw: string) {
   const fields = {
     name: "",
     description: "",
     personality: "",
     appearance: "",
     scenario: "",
+    worldSetting: "",
     firstMes: "",
     mesExample: "",
   }
@@ -259,13 +261,14 @@ function normaliseStringField(v: unknown): string {
  */
 function extractFields(
   parsed: Record<string, unknown>,
-  fields: { name: string; description: string; personality: string; appearance: string; scenario: string; firstMes: string; mesExample: string }
+  fields: { name: string; description: string; personality: string; appearance: string; scenario: string; worldSetting: string; firstMes: string; mesExample: string }
 ) {
   fields.name = typeof parsed.name === "string" ? parsed.name.trim() : "";
   fields.description = normaliseStringField(parsed.description);
   fields.personality = normaliseStringField(parsed.personality);
   fields.appearance = normaliseStringField(parsed.appearance);
   fields.scenario = normaliseStringField(parsed.scenario);
+  fields.worldSetting = normaliseStringField(parsed.worldSetting);
   fields.firstMes = normaliseStringField(parsed.firstMes);
   fields.mesExample = normaliseStringField(parsed.mesExample);
 }
@@ -280,6 +283,7 @@ function extractFieldsWithRegex(text: string) {
     personality: "",
     appearance: "",
     scenario: "",
+    worldSetting: "",
     firstMes: "",
     mesExample: "",
   }
@@ -297,6 +301,7 @@ function extractFieldsWithRegex(text: string) {
   fields.personality = extract("personality")
   fields.appearance = extract("appearance")
   fields.scenario = extract("scenario")
+  fields.worldSetting = extract("worldSetting")
   fields.firstMes = extract("firstMes")
   fields.mesExample = extract("mesExample")
   
@@ -362,6 +367,7 @@ ${referenceBlock ? referenceBlock + "\n" : ""}INSTRUCTIONS — fill every field 
     * Any distinctive physical traits or mannerisms
     If user description mentions physical traits, these MUST be clearly reflected.
 - "scenario": 2-3 sentences. A specific, vivid scene where the user might first encounter this character. Include location, time of day, what the character is doing.
+- "worldSetting": If the user description implies a specific era, culture, or historical setting (e.g. medieval, ancient Japan, Javanese kingdom), describe the world setting: era, available technology, typical clothing, transportation, architecture, customs. If the description is modern/contemporary or no specific era is implied, leave this as an empty string "".
 - "firstMes": 3-5 sentences. Opening message in character. Mix *narrated actions in asterisks* with "spoken dialogue in quotes". Reflect their personality and scenario.
 - "mesExample": REQUIRED. Write EXACTLY 2 full exchange examples. Each must have a user line AND a full character response with action + dialogue. Format (\\n between exchanges):\n    {{user}}: [message]\\n{{char}}: *[action]* "[dialogue]" *[action]*\n    {{user}}: [second message]\\n{{char}}: *[action]* "[dialogue]" *[closing action]*\n    Make responses reflect personality — NOT generic friendly replies.
 
@@ -373,6 +379,7 @@ YOU MUST output ONLY a raw JSON object. No prose, no markdown fences, no explana
   "personality": "...",
   "appearance": "...",
   "scenario": "...",
+  "worldSetting": "...",
   "firstMes": "...",
   "mesExample": "..."
 }`

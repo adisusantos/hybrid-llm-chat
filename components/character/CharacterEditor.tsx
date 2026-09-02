@@ -16,6 +16,7 @@ export type CharacterFormData = {
   description: string;
   personality: string;
   scenario: string;
+  worldSetting: string;
   firstMes: string;
   mesExample: string;
   systemPromptOverride: string;
@@ -36,6 +37,7 @@ const EMPTY: CharacterFormData = {
   description: "",
   personality: "",
   scenario: "",
+  worldSetting: "",
   firstMes: "",
   mesExample: "",
   systemPromptOverride: "",
@@ -248,6 +250,7 @@ export function CharacterEditor({ initial, mode }: Props) {
         description: body.description ?? d.description,
         personality: body.personality ?? d.personality,
         scenario: body.scenario ?? d.scenario,
+        worldSetting: body.worldSetting ?? d.worldSetting,
         firstMes: body.firstMes ?? d.firstMes,
         mesExample: mesExample || d.mesExample,
         appearance: body.appearance ?? d.appearance,
@@ -587,6 +590,19 @@ export function CharacterEditor({ initial, mode }: Props) {
               value={data.scenario}
               onChange={(e) => update("scenario", e.target.value)}
             />
+          </Field>
+
+          <Field id="worldSetting" label="World Setting">
+            <Textarea
+              id="worldSetting"
+              rows={3}
+              value={data.worldSetting}
+              onChange={(e) => update("worldSetting", e.target.value)}
+              placeholder="Era, teknologi, pakaian, transportasi, arsitektur, adat istiadat. Contoh: Jawa kuno abad 9, era Kerajaan Mataram Hindu. Teknologi terbatas pada alat besi, perahu kayu, gerobak sapi. Pakaian kain tenun, batik, kemben. Arsitektur pendopo, candi batu."
+            />
+            <p className="text-muted-foreground text-xs">
+              Deskripsi setting dunia untuk menjaga konsistensi era/environment sepanjang percakapan. AI tidak akan menyebut hal yang tidak sesuai setting ini.
+            </p>
           </Field>
 
           <Field id="firstMes" label="First message">

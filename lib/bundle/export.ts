@@ -27,6 +27,7 @@ export type BundleCharacter = {
   description: string;
   personality: string;
   scenario: string;
+  worldSetting: string;
   firstMes: string;
   mesExample: string;
   systemPromptOverride: string | null;
@@ -102,6 +103,7 @@ export async function buildChatBundle(chatId: string): Promise<ChatBundle> {
     description: chat.character.description,
     personality: chat.character.personality,
     scenario: chat.character.scenario,
+    worldSetting: chat.character.worldSetting,
     firstMes: chat.character.firstMes,
     mesExample: chat.character.mesExample,
     systemPromptOverride: chat.character.systemPromptOverride,

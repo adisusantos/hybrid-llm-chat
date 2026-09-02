@@ -23,10 +23,14 @@ export type SummaryResult = {
   };
 };
 
-function getSystemPrompt(hasPreviousSummary: boolean): string {
+function getSystemPrompt(hasPreviousSummary: boolean, worldSetting?: string): string {
   const summaryInstruction = hasPreviousSummary 
     ? `1. "summary": a 2-4 sentence prose summary updating/extending the existing summary with new events. Merge the previous summary's key context with the new developments. Keep it concise. Capture: main events, emotional arcs, character dynamics.`
     : `1. "summary": a 2-4 sentence prose summary of the conversation so far. Capture: main events, emotional arcs, character dynamics, and any important context. Be specific (use names, places, items mentioned) but concise.`;
+
+  const worldSettingRule = worldSetting
+    ? `\n- The story takes place in this world setting: "${worldSetting}". Do NOT generate memories that contradict this setting (e.g. modern technology in a medieval setting). Summaries should capture location/environment changes within the narrative.`
+    : "";
 
   return `You are a memory assistant for a roleplay chat. Given a conversation between a USER and an ASSISTANT (the character), produce a single JSON object with two fields:
 
@@ -40,12 +44,16 @@ Rules:
 - Output ONLY the JSON object, nothing else.
 - No markdown code fences.
 - Do not invent facts that aren't in the conversation.
-- If the conversation is trivial, return a short summary and an empty memories array.`;
+- If the conversation is trivial, return a short summary and an empty memories array.${worldSettingRule}`;
 }
 
-function buildUserPrompt(turns: ChatTurn[], previousSummary?: string): string {
+function buildUserPrompt(turns: ChatTurn[], previousSummary?: string, worldSetting?: string): string {
   const lines: string[] = [];
   
+  if (worldSetting && worldSetting.trim().length > 0) {
+    lines.push(`World Setting: ${worldSetting.trim()}`, "");
+  }
+
   if (previousSummary && previousSummary.trim().length > 0) {
     lines.push("Previous Summary:", previousSummary.trim(), "");
     lines.push("Latest Conversation to summarize:", "");
@@ -90,7 +98,7 @@ function buildUserPrompt(turns: ChatTurn[], previousSummary?: string): string {
  */
 export async function summarizeConversation(
   turns: ChatTurn[],
-  opts?: { baseUrl?: string; apiKey?: string; previousSummary?: string },
+  opts?: { baseUrl?: string; apiKey?: string; previousSummary?: string; worldSetting?: string },
 ): Promise<SummaryResult> {
   if (turns.length === 0) {
     return { summary: "", memories: [] };
@@ -98,8 +106,8 @@ export async function summarizeConversation(
 
   const hasPreviousSummary = !!(opts?.previousSummary && opts.previousSummary.trim().length > 0);
   const messages = [
-    { role: "system" as const, content: getSystemPrompt(hasPreviousSummary) },
-    { role: "user" as const, content: buildUserPrompt(turns, opts?.previousSummary) },
+    { role: "system" as const, content: getSystemPrompt(hasPreviousSummary, opts?.worldSetting) },
+    { role: "user" as const, content: buildUserPrompt(turns, opts?.previousSummary, opts?.worldSetting) },
   ];
 
   // Try Cloud Text AI if enabled & reachable

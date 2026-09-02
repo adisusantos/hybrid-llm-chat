@@ -20,6 +20,7 @@ export const characters = sqliteTable("characters", {
   description: text("description").notNull().default(""),
   personality: text("personality").notNull().default(""),
   scenario: text("scenario").notNull().default(""),
+  worldSetting: text("world_setting").notNull().default(""),
   firstMes: text("first_mes").notNull().default(""),
   mesExample: text("mes_example").notNull().default(""),
   systemPromptOverride: text("system_prompt_override"),

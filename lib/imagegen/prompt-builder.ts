@@ -64,7 +64,10 @@ function extractAgeDescriptor(text: string): string {
   if (numeric) return numeric[0].replace(/\s+/g, " ").trim();
   const preteen = text.match(/\bpre[- ]?teen\b/i);
   if (preteen) return "preteen";
-  const category = text.match(/\b(?:early|mid|late) teens?\b|\b(?:young|teenage|adult|middle-aged|elderly)\b/i);
+  // Decade-based age ranges: "early 60s", "mid 40s", "late 50s", "60s", "20s"
+  const decade = text.match(/\b(?:early|mid|late|mid-|early-|late-)?\s*\d{2}s\b/i);
+  if (decade) return decade[0].replace(/\s+/g, " ").trim();
+  const category = text.match(/\b(?:early|mid|late) teens?\b|\b(?:young|teenage|elderly|middle-aged|mature|adult)\b/i);
   return category?.[0] ?? "";
 }
 
@@ -227,11 +230,11 @@ function extractBodyFromAppearance(appearance: string): string {
 
   // Keywords that signal a body/build sentence
   const BUILD_NOUNS =
-    /\b(slim|slender|thin|lean|lean muscular|athletic|muscular|heavily muscular|stocky|chubby|overweight|obese|plus.size|full.figured|petite|curvy|thick|barrel|average build|thin build|heavy build|fit|toned|tall|short|average height|petite|towering)\b/i;
+    /\b(slim|slender|thin|lean|lean muscular|athletic|muscular|heavily muscular|stocky|chubby|overweight|obese|plus.size|full.figured|petite|curvy|thick|barrel|average build|thin build|heavy build|fit|toned|tall|short|average height|petite|towering|physique|frame|proportions?|body|torso|waist|hips?|buttocks?|bust|chest|shoulders?)\b/i;
   const HEIGHT_RE =
     /\b(\d{3}\s*cm|\d+'\d+|\d+\s*feet|\d+\s*ft\b|tall|short|petite|average height|above average height)\b/i;
   const FIGURE_RE =
-    /\b(hourglass|pear.shaped|apple.shaped|rectangular|inverted triangle|barrel|hour.glass|figure)\b/i;
+    /\b(hourglass|pear.shaped|apple.shaped|rectangular|inverted triangle|barrel|hour.glass|figure|physique|frame|proportions?|build)\b/i;
 
   const sentences = appearance.split(/[.!?]+/).map((s) => s.trim()).filter(Boolean);
   const bodyParts: string[] = [];
@@ -242,9 +245,9 @@ function extractBodyFromAppearance(appearance: string): string {
     // Extract only the relevant descriptors from the sentence — not the whole sentence
     const descriptors: string[] = [];
 
-    // Build/figure
+    // Build/figure/physique
     const buildMatch = s.match(
-      /\b(slim|slender|thin|lean|lean muscular|athletic|muscular|heavily muscular|stocky|chubby|overweight|obese|plus.size|full.figured|curvy|thick|barrel|average build|thin build|heavy build|fit|toned)\s*(?:build|frame|figure|body)?\b/gi,
+      /\b(slim|slender|thin|lean|lean muscular|athletic|muscular|heavily muscular|stocky|chubby|overweight|obese|plus.size|full.figured|curvy|thick|barrel|average build|thin build|heavy build|fit|toned|thin upper body|slender frame|wide lower physique|large lower physique|large physique|wide physique|full physique|full frame)\b/gi,
     );
     if (buildMatch) descriptors.push(...buildMatch.map((m) => m.toLowerCase().trim()));
 
@@ -252,8 +255,8 @@ function extractBodyFromAppearance(appearance: string): string {
     const heightMatch = s.match(/\b\d{3}\s*cm\b|\b\d+'\d+\b|\b(tall|short|petite|average height|above average height)\b/gi);
     if (heightMatch) descriptors.push(...heightMatch.map((m) => m.toLowerCase().trim()));
 
-    // Width/proportions
-    const propMatch = s.match(/\b(wide hips?|very wide hips?|narrow hips?|broad shoulders?|narrow shoulders?|very broad shoulders?|average bust|small bust|medium bust|large bust|very large bust|extremely large bust|full bust|broad muscular chest|large buttocks|very large buttocks|extremely large buttocks|round buttocks|prominent buttocks|hourglass|pear.shaped|barrel|rectangular)\b/gi);
+    // Width/proportions/waist/hips/buttocks
+    const propMatch = s.match(/\b(wide hips?|very wide hips?|narrow hips?|broad shoulders?|narrow shoulders?|very broad shoulders?|narrow waist|small waist|tiny waist|wide waist|full waist|average bust|small bust|medium bust|large bust|very large bust|extremely large bust|full bust|broad muscular chest|large buttocks|very large buttocks|extremely large buttocks|round buttocks|rounded buttocks|full buttocks|full, rounded buttocks|prominent buttocks|hourglass|pear.shaped|barrel|rectangular)\b/gi);
     if (propMatch) descriptors.push(...propMatch.map((m) => m.toLowerCase().trim()));
 
     if (descriptors.length > 0) {
@@ -263,12 +266,12 @@ function extractBodyFromAppearance(appearance: string): string {
       }
     }
 
-    // Stop after first 2 body-describing sentences to keep it compact
-    if (bodyParts.length >= 4) break;
+    // Stop after collecting enough descriptors
+    if (bodyParts.length >= 8) break;
   }
 
   if (bodyParts.length === 0) return "";
-  return bodyParts.slice(0, 6).join(", ");
+  return bodyParts.slice(0, 8).join(", ");
 }
 
 function buildSubject(
@@ -725,6 +728,60 @@ export function inferShotType(message: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// World setting hints for image generation
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert a world setting description into SD-friendly environment hints
+ * and negative prompt additions to prevent anachronistic elements.
+ */
+function buildWorldSettingHints(worldSetting: string): {
+  environmentSuffix: string;
+  negativeAdditions: string;
+} {
+  const lower = worldSetting.toLowerCase();
+  const envParts: string[] = [];
+  const negParts: string[] = [];
+
+  // Medieval / European
+  if (/\b(medieval|middle ages?|dark ages?|feudal europe|knights?|castle)\b/i.test(lower)) {
+    envParts.push("medieval architecture", "cobblestone", "torchlight");
+    negParts.push("modern buildings", "electricity", "car", "phone", "asphalt road");
+  }
+  // Ancient Japan
+  if (/\b(jepang kuno|ancient japan|edo period|samurai|shogun|heian|sengoku)\b/i.test(lower)) {
+    envParts.push("traditional Japanese architecture", "wooden buildings", "shoji screens", "tatami");
+    negParts.push("modern buildings", "electricity", "car", "phone", "western clothing");
+  }
+  // Ancient Java / Nusantara
+  if (/\b(jawa kuno|kerajaan jawa|mataram|majapahit|sriwijaya|nusantara kuno|candi)\b/i.test(lower)) {
+    envParts.push("ancient Javanese architecture", "stone temple", "pendopo", "tropical vegetation");
+    negParts.push("modern buildings", "electricity", "car", "phone", "western clothing");
+  }
+  // Ancient / Classical
+  if (/\b(ancient|classical|roman empire|greek|egyptian|mesopotamia|bronze age|iron age)\b/i.test(lower)) {
+    envParts.push("ancient architecture", "stone columns", "oil lamps");
+    negParts.push("modern buildings", "electricity", "car", "phone");
+  }
+  // Victorian / Steampunk
+  if (/\b(victorian|steampunk|19th century|industrial revolution)\b/i.test(lower)) {
+    envParts.push("Victorian architecture", "gas lamps", "cobblestone streets");
+    negParts.push("modern car", "smartphone", "neon lights", "skyscraper");
+  }
+
+  // Generic pre-modern fallback
+  if (envParts.length === 0 && /\b(kuno|ancient|pre-?modern|traditional|historical)\b/i.test(lower)) {
+    envParts.push("historical setting", "traditional architecture");
+    negParts.push("modern buildings", "electricity", "car", "phone");
+  }
+
+  return {
+    environmentSuffix: envParts.join(", "),
+    negativeAdditions: negParts.join(", "),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Public builders
 // ---------------------------------------------------------------------------
 
@@ -734,6 +791,7 @@ export function buildHeuristicPrompt(input: {
   bodyDescription?: string;
   characterGender?: "male" | "female" | null;
   lastAssistantMsg: string;
+  worldSetting?: string;
 }): PromptFields {
   const subjectBase = buildSubject(input.appearance, input.faceDescription, input.bodyDescription, input.characterGender);
   const imageNote = extractImageNoteText(input.lastAssistantMsg);
@@ -744,18 +802,27 @@ export function buildHeuristicPrompt(input: {
   // Note pose is cleaner and more SD-friendly than prose narration
   const poseFromNote = extractPoseFromNote(visualNote);
   const pose = poseFromNote || compressPose(cleanAction(firstVisual));
+  const environmentBase = truncateAtWord(extractEnvironmentPhrase(sentences, visualNote), 160);
+  // Inject world setting hints into environment and negative prompt
+  const worldHints = input.worldSetting ? buildWorldSettingHints(input.worldSetting) : null;
+  const environment = worldHints?.environmentSuffix
+    ? (environmentBase ? `${environmentBase}, ${worldHints.environmentSuffix}` : worldHints.environmentSuffix)
+    : environmentBase;
+  const negativePrompt = worldHints?.negativeAdditions
+    ? `${PROMPT_DEFAULTS.negativePrompt}, ${worldHints.negativeAdditions}`
+    : PROMPT_DEFAULTS.negativePrompt;
   return {
     face: "",
     subject: subjectBase,
     outfit: truncateAtWord(extractClothingPhrase(sentences, visualNote), 160),
     pose: truncateAtWord(pose, 300),
-    environment: truncateAtWord(extractEnvironmentPhrase(sentences, visualNote), 160),
+    environment,
     cameraAngle: inferCameraAngle(input.lastAssistantMsg),
     shotType: inferShotType(input.lastAssistantMsg),
     lens: PROMPT_DEFAULTS.lens,
     lighting: PROMPT_DEFAULTS.lighting,
     style: PROMPT_DEFAULTS.style,
-    negativePrompt: PROMPT_DEFAULTS.negativePrompt,
+    negativePrompt,
   };
 }
 
@@ -802,6 +869,7 @@ export function buildSmartPrompt(input: {
   bodyDescription?: string;
   characterGender?: "male" | "female" | null;
   lastAssistantMsg: string;
+  worldSetting?: string;
 }): PromptFields {
   // ── Priority 1: use [image: ...] or [appearance: ...] tag verbatim as the scene descriptor ──
   // If the AI message contains an [image: ...] or [appearance: ...] tag, use its full content
@@ -813,6 +881,10 @@ export function buildSmartPrompt(input: {
   const imageNote = extractImageNoteText(input.lastAssistantMsg);
   const appearanceNote = extractAppearanceNoteText(input.lastAssistantMsg);
   const explicitNote = imageNote || appearanceNote;
+  const worldHints = input.worldSetting ? buildWorldSettingHints(input.worldSetting) : null;
+  const negativePrompt = worldHints?.negativeAdditions
+    ? `${PROMPT_DEFAULTS.negativePrompt}, ${worldHints.negativeAdditions}`
+    : PROMPT_DEFAULTS.negativePrompt;
 
   if (explicitNote) {
     const compactSubject = buildCompactSubject(
@@ -826,13 +898,13 @@ export function buildSmartPrompt(input: {
       subject: compactSubject,
       outfit: "",        // embedded in note
       pose: truncateAtWord(explicitNote, 400),
-      environment: "",   // embedded in note
+      environment: worldHints?.environmentSuffix || "",   // embedded in note, add world hints
       cameraAngle: inferCameraAngle(input.lastAssistantMsg),
       shotType: inferShotType(input.lastAssistantMsg),
       lens: PROMPT_DEFAULTS.lens,
       lighting: PROMPT_DEFAULTS.lighting,
       style: PROMPT_DEFAULTS.style,
-      negativePrompt: PROMPT_DEFAULTS.negativePrompt,
+      negativePrompt,
     };
   }
 
@@ -840,18 +912,22 @@ export function buildSmartPrompt(input: {
   const subject = buildSubject(input.appearance, input.faceDescription, input.bodyDescription, input.characterGender);
   const sentences = splitSentences(input.lastAssistantMsg);
   const summary = summariseMessageForPrompt(input.lastAssistantMsg);
+  const environmentBase = truncateAtWord(extractEnvironmentPhrase(sentences, ""), 160);
+  const environment = worldHints?.environmentSuffix
+    ? (environmentBase ? `${environmentBase}, ${worldHints.environmentSuffix}` : worldHints.environmentSuffix)
+    : environmentBase;
   return {
     face: "",
     subject,
     outfit: truncateAtWord(extractClothingPhrase(sentences, ""), 160),
     pose: truncateAtWord(summary, 300),
-    environment: truncateAtWord(extractEnvironmentPhrase(sentences, ""), 160),
+    environment,
     cameraAngle: inferCameraAngle(input.lastAssistantMsg),
     shotType: inferShotType(input.lastAssistantMsg),
     lens: PROMPT_DEFAULTS.lens,
     lighting: PROMPT_DEFAULTS.lighting,
     style: PROMPT_DEFAULTS.style,
-    negativePrompt: PROMPT_DEFAULTS.negativePrompt,
+    negativePrompt,
   };
 }
 

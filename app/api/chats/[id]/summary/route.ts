@@ -86,7 +86,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
   let result;
   try {
-    result = await summarizeConversation(turns, { previousSummary });
+    result = await summarizeConversation(turns, { previousSummary, worldSetting: chat.character.worldSetting });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },

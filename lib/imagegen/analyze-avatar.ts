@@ -110,7 +110,9 @@ async function toSupportedFormat(
   if (!needsConvert && !needsResize) return buf;
 
   try {
-    const sharp = (await import("sharp")).default;
+    // @ts-expect-error sharp is an optional native dependency
+    const sharpModule = await import("sharp");
+    const sharp = sharpModule.default;
     let pipeline = sharp(buf);
     if (needsResize) {
       pipeline = pipeline.resize(maxDim, maxDim, {
