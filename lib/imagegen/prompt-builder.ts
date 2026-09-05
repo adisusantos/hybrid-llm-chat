@@ -5,9 +5,24 @@
  * Flatten a structured avatar analysis JSON string into a compact
  * comma-separated string suitable for Stable Diffusion prompts.
  * If the input is not valid JSON (legacy comma-string format), returns as-is.
- * This is intentionally duplicated from analyze-avatar.ts because this file
- * must remain client-safe (no server-only imports).
+ * Excludes age_range and gender keys so they don't cause duplicate/conflicting
+ * tags with the authoritative injectAgeCategory() output.
  */
+function flattenFaceAnalysisToString(raw: string): string {
+  if (!raw.trim().startsWith("{")) return raw;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    // Exclude age_range and gender to avoid duplication & prompt bleed with injectAgeCategory()
+    const { age_range: _age, gender: _gender, ...rest } = parsed;
+    return Object.values(rest)
+      .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+      .map((v) => v.trim())
+      .join(", ");
+  } catch {
+    return raw;
+  }
+}
+
 function flattenAnalysisToString(raw: string): string {
   if (!raw.trim().startsWith("{")) return raw;
   try {
@@ -109,6 +124,31 @@ function truncateAtWord(s: string, maxLen: number): string {
   return lastSpace > 0 ? cut.slice(0, lastSpace) : cut;
 }
 
+/**
+ * Neutralize provocative or overly explicit anatomical slang into clinical/objective
+ * morphological descriptors to prevent false-positive NSFW blocks on cloud image APIs.
+ */
+export function sanitizeAnatomicalTerms(text: string): string {
+  if (!text) return "";
+  return text
+    // Bust / chest terms
+    .replace(/\b(?:extremely|very)\s+large\s+bust\b/gi, "full natural chest proportion")
+    .replace(/\blarge\s+bust\b/gi, "proportional full chest")
+    .replace(/\b(?:huge|massive|giant)\s+(?:breasts?|boobs?|tits?|bust)\b/gi, "full chest profile")
+    .replace(/\b(?:heavy|pendulous)\s+bust\b/gi, "natural mature chest")
+    // Buttocks / lower body terms (e.g. Steatopygia / Khoisan / Latina morphology)
+    .replace(/\b(?:extremely|very)\s+large\s+buttocks\b/gi, "prominently pronounced gluteal morphology, natural wide pelvic structure")
+    .replace(/\blarge\s+(?:round\s+)?buttocks\b/gi, "pronounced natural pelvic structure, rounded lower physique")
+    .replace(/\b(?:huge|big|fat|bubble)\s+(?:butt|ass|booty|buttocks)\b/gi, "wide natural pelvic morphology")
+    .replace(/\bfull,?\s+rounded\s+buttocks\b/gi, "natural rounded lower physique")
+    // General body shape terms
+    .replace(/\bextreme\s+pear-shaped\b/gi, "lower-body dominant gynoid bone structure")
+    .replace(/\b(?:thick|thicc)\s+(?:thighs?|legs?)\b/gi, "sturdy natural legs")
+    .replace(/\b(?:sexy|sensual|seductive|erotic)\b/gi, "graceful")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Sensible defaults for fields the chat messages don't cover. */
 export const PROMPT_DEFAULTS = {
   cameraAngle: "eye level",
@@ -116,7 +156,7 @@ export const PROMPT_DEFAULTS = {
   lens: "85mm",
   lighting: "natural light",
   style: "photorealistic, cinematic",
-  negativePrompt: "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
+  negativePrompt: "pinup, exaggerated cartoon proportions, lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry",
 };
 
 // ---------------------------------------------------------------------------
@@ -188,15 +228,26 @@ function injectAgeCategory(desc: string, gender: CharacterGender = null): string
   else if (midAge < 60) category = `middle-aged ${adultNoun}`;
   else category = `elderly ${adultNoun}`;
 
+  // If category is elderly or middle-aged, strip any leftover "mature adult", "adult", or bare "female/male"
+  // from the rest of the string to avoid contradictory prompt bleed in CLIP.
+  let cleaned = desc
+    .replace(/\b(?:early|mid|late|mid-|early-|late-)?\s*\d{2}s\b/gi, "")
+    .replace(/\b(?:mature\s+adult|young\s+adult|adult|mature)\b/gi, "")
+    .replace(/\b(?:female|male)\b/gi, "")
+    .replace(/,\s*,+/g, ",")
+    .replace(/^,\s*/, "")
+    .replace(/,\s*$/, "")
+    .trim();
+
   // If the description doesn't already contain a strong numeric "years old" token,
   // inject it to prevent the SD model from ignoring "late 50s" and defaulting to a 30yo face.
   const hasStrongNumericAge = /\b\d{1,2}\s*(?:years?\s*old|year-old|yo)\b/i.test(desc);
 
   if (!hasStrongNumericAge) {
-    return `${category}, ${midAge} years old, ${desc}`;
+    return cleaned ? `${category}, ${midAge} years old, ${cleaned}` : `${category}, ${midAge} years old`;
   }
 
-  return `${category}, ${desc}`;
+  return cleaned ? `${category}, ${cleaned}` : category;
 }
 
 // ---------------------------------------------------------------------------
@@ -280,23 +331,22 @@ function buildSubject(
   bodyDescription?: string,
   characterGender?: CharacterGender,
 ): string {
-  const face = faceDescription ? flattenAnalysisToString(faceDescription).trim() : undefined;
+  const face = faceDescription ? flattenFaceAnalysisToString(faceDescription).trim() : undefined;
   const gender = resolveGender(characterGender ?? null, faceDescription, appearance);
-  const ageHint = extractAgeDescriptor(`${face ?? ""}, ${appearance}`);
-  const child = isChildDescription(`${ageHint}, ${face ?? ""}, ${appearance}`);
+  const ageHint = extractAgeDescriptor(`${faceDescription ?? ""}, ${appearance}`);
+  const child = isChildDescription(`${ageHint}, ${faceDescription ?? ""}, ${appearance}`);
   const bodyRaw = flattenBodyAnalysis(bodyDescription, child);
   const body = bodyRaw || undefined;
-  const genderHint = gender ? ` ${gender}` : "";
 
   if (face || body) {
     // If bodyDescription is missing but appearance has build info, extract it
     const bodyFallback = !body ? extractBodyFromAppearance(appearance) : "";
-    const combined = [ageHint, face, body || bodyFallback].filter(Boolean).join(", ") + genderHint;
+    const combined = [ageHint, face, body || bodyFallback].filter(Boolean).join(", ");
     return injectAgeCategory(combined, gender);
   }
 
   const app = appearance.trim();
-  if (app) return injectAgeCategory(app.slice(0, 800) + genderHint, gender);
+  if (app) return injectAgeCategory(app.slice(0, 800), gender);
   return "(character appearance not set)";
 }
 
@@ -314,23 +364,20 @@ function buildCompactSubject(
   bodyDescription?: string,
   characterGender?: CharacterGender,
 ): string {
-  const faceRaw = faceDescription ? flattenAnalysisToString(faceDescription).trim() : "";
   const gender = resolveGender(characterGender ?? null, faceDescription, appearance);
-  const child = isChildDescription(`${faceRaw}, ${appearance}`);
+  const child = isChildDescription(`${faceDescription ?? ""}, ${appearance}`);
   const body = flattenBodyAnalysis(bodyDescription, child) || undefined;
-  const genderHint = gender ? ` ${gender}` : "";
 
-  // Extract age from faceDescription — flatten JSON first if needed
-  const agePart = extractAgeDescriptor(`${faceRaw}, ${appearance}`);
+  // Extract age from faceDescription or appearance
+  const agePart = extractAgeDescriptor(`${faceDescription ?? ""}, ${appearance}`);
 
   // Body build — use bodyDescription or extract from appearance prose
   const bodyPart = body || extractBodyFromAppearance(appearance);
 
   const parts = [agePart, bodyPart].filter(Boolean).join(", ");
-  const withGender = parts + genderHint;
   return parts
-    ? injectAgeCategory(withGender, gender)
-    : injectAgeCategory((appearance.slice(0, 100) + genderHint).trim(), gender);
+    ? injectAgeCategory(parts, gender)
+    : injectAgeCategory(appearance.slice(0, 100).trim(), gender);
 }
 
 // ---------------------------------------------------------------------------
@@ -932,7 +979,7 @@ export function buildSmartPrompt(input: {
 }
 
 export function fieldsToPrompt(fields: PromptFields): string {
-  return [
+  const raw = [
     fields.face,
     fields.subject,
     fields.outfit,
@@ -947,4 +994,6 @@ export function fieldsToPrompt(fields: PromptFields): string {
     .map((s) => s.trim())
     .filter(Boolean)
     .join(", ");
+
+  return sanitizeAnatomicalTerms(raw);
 }
